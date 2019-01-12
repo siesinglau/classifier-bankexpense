@@ -32,6 +32,8 @@ def cleantext(string):
         string = string.replace(char,'')
     #remove double spaces
     string = string.replace('  ',' ')
+    #remove leading and trailing whitespace characters
+    string = string.strip()
     return string.lower()
 
 #function to lookup category text to labels
@@ -89,9 +91,15 @@ class WordIndex:
     
     def __init__(self, filename):
         
-        #read word index file when instantiate
         self.filename = filename
-        wi = open(self.filename,'r+')
+
+        #read word index file when instantiate
+        try:
+            wi = open(self.filename,'r+')
+        except FileNotFoundError:
+            print('The word index file does not exist. A new index file will be created.')
+            wi = open(self.filename,'x+')
+        
         self.contents = dict()
         for line in wi:
             #strip out \n character
@@ -121,7 +129,10 @@ class WordIndex:
         #then check what is the highest index currently in the word index.
         #the next new word will take the next number and added to the wordindex file
         wi = open(self.filename,'a')
-        highestindex = max([int(i) for i in self.contents.values()])
+        if len(self.contents.values()) == 0:
+            highestindex = 0
+        else:
+            highestindex = max([int(i) for i in self.contents.values()])
         for word in uniqwords:
             try:
                 self.contents[word]
@@ -165,14 +176,17 @@ if __name__ == "__main__":
     print('EXPENSE CATEGORISATION PROGRAM')
     print('------------------------------')
     print('Function:')
-    print('Using Machine Learning to learn and predict expense categories\n')
+    print('Categorise expense text description into specific categories. See option 8 to view the current expense categories.')
+    print('Program builds a simple neural network using Tensorflow Keras that can be trained to map the text description to the categories.')
+    print('\n')
     print('Some Instructions:')
-    print('When training the model, the input file should be in CSV format and named as training.csv')
-    print('The 3rd column of of the input file contains a text description of the expense preferably in less than 8 words.')
-    print('The 4th column of the input file should contain the text of one of the 18 expense categories corresponding to')
-    print('the text description.\n')
+    print('To train the model, the input file should be in CSV format and named as training.csv')
+    print('See training sample.csv for the formatting needed.')
+    print('The 3rd column of of the input file contains a text description of the expense.')
+    print('The 4th column of the input file contains the text of one of the expense categories.\n')
     print('When predicting using the model, the input file should be in CSV format and named as predict.csv')
-    print('The 3rd column of of the input file contains a text description of the expense preferably in less than 8 words.')
+    print('See predict sample.csv for the formatting needed.')
+    print('The 3rd column of of the input file contains a text description of the expense.')
     print('The program will list as an output the predicted expense category for each expense text description.\n')
 
     while True:
@@ -203,7 +217,7 @@ if __name__ == "__main__":
             else:
                 inputdata, outputdata = read_raw_data('training.csv')
 
-            #update wordindex dictionary and file if any new words are found
+            #update wordindex dictionary file if any new words are found
             wordindex.updateindex(inputdata,'wordindex.txt')
 
             #convert input data into indexes and save it to a training data file
@@ -232,7 +246,7 @@ if __name__ == "__main__":
             if run_type == 1:
                 #build the model
                 model = keras.Sequential()
-                model.add(keras.layers.Embedding(100000,32,input_length=8))
+                model.add(keras.layers.Embedding(10000,32,input_length=8))
                 model.add(keras.layers.GlobalAveragePooling1D())
                 model.add(keras.layers.Dense(32, activation=tf.nn.relu))
                 model.add(keras.layers.Dense(18, activation=tf.nn.softmax))
@@ -241,7 +255,7 @@ if __name__ == "__main__":
                 model.compile(optimizer='Adam',loss='sparse_categorical_crossentropy',metrics=['accuracy'])
 
                 #train the model
-                early_stop = keras.callbacks.EarlyStopping(monitor='acc', patience=30)
+                early_stop = keras.callbacks.EarlyStopping(monitor='acc', patience=50)
                 history = model.fit(traindata, trainlabels, epochs=EPOCHS,
                         verbose=0, callbacks=[early_stop, PrintProgress()])
 
@@ -277,16 +291,17 @@ if __name__ == "__main__":
 
                 for i,output in enumerate(predict):
                     if output[np.argmax(output)] * 100 < 90:
-                        print(colored('{0:40} ==> {1:15} {2:10.2f}% probability'.format(inputdata[i], 
+                        print(colored('{0:40} ==> {1:15} {2:10.2f}% probability'.format(inputdata[i][:40], 
                                                                             label2text(int(np.argmax(output))), 
                                                                             output[np.argmax(output)]*100),'red'))
                     else:
-                        print(colored('{0:40} ==> {1:15} {2:10.2f}% probability'.format(inputdata[i], 
+                        print(colored('{0:40} ==> {1:15} {2:10.2f}% probability'.format(inputdata[i][:40], 
                                                                             label2text(int(np.argmax(output))), 
                                                                             output[np.argmax(output)]*100),'green'))
             if run_type == 8:
-                for i,w in lookup.items():
-                    print(f"{w} ==> {i}")
+                print("These are the current expense categories:\n")
+                for i,w in enumerate(reverse_lookup.values()):
+                    print(f"{i+1}. {w}")
 
         else:
             #exit when an input other than 1,2 or 3 is entered
