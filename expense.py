@@ -1,14 +1,31 @@
-### functions and imports ###
+### This is a Python script that maps an expense text description to an expense category
+### The mapping is achieved through a simple Tensorflow based neural network that is first trained
+### with a set of training data supplied through a CSV file named training.csv.
+### Once trained with sufficient data, the neural network model will be accurate enough to be used for prediction.
+### The prediction is done by supplying a CSV file named predict.csv.
+###
+### Limitations:
+### 1. The model is currently limited to be able to map to 20 expense categories
+### 2. Only the first 8 words of the expense text description is used. The rest of the text is ignored.
+### 3. The script creates a file called wordindex.txt which is a dictionary used to process the text description.
+###    Currently the dictionary size is limited to 10,000 words.
+###
+### Customisation:
+### 1. You can customise the expense categories by amending the data dictionary 'lookup' below
+
+
+### functions and imports
 import tensorflow as tf
 import numpy as np
 from tensorflow import keras
 from termcolor import colored
 
 EPOCHS=300
+DICT_LIMIT = 10000
 
 # main variable to control how this program will behave
 def get_run_type():
-    print('.....................................................................................................')
+    print('...................................O P T I O N S.....................................................')
     print('Enter 1 to build the learning model from scratch, train it and then save it.')
     print('Enter 2 to load an earlier trained model and just retrain it with additional data.')
     print('Enter 3 to load an earlier trained model and use it to predict the categories from an input csv file.')
@@ -21,9 +38,9 @@ def get_run_type():
     return run_type
                  
 # category label lookup codes
-lookup = {'investment':1,'rent':2,'education':3,'groceries':4,'travel':5,'home':6,'restaurants':7,'kids':8,
-         'insurance':9,'petrol':10,'medicine':11,'shopping':12,'utilities':13,'gifting':14,
-          'car':15,'others':16,'entertainment':17,'transportation':0}
+lookup = {'investment':0,'rent or mortgage':1,'education':2,'groceries':3,'travel':4,'home maintenance':5,'restaurants':6,'kids expenses':7,
+         'insurance':8,'petrol':9,'medicine':10,'shopping':11,'utilities':12,'gifting':13,
+          'car maintenance':14,'entertainment':15,'transportation':16,'others':17}
 reverse_lookup = {i:w for w, i in lookup.items()}
 
 #function to remove symbols and numbers from the input string
@@ -52,20 +69,26 @@ def read_raw_data(filename):
 
     inputdata = list()
     outputdata = list()
-    f = open(filename, 'r')
-    for i,lines in enumerate(f):
-        if i == 0:
-            #always discard the header row
-            pass
-        else:
-            lines = lines.split(',')
-            desc = lines[2].replace('"','')
-            inputdata.append(cleantext(desc))
-            #skip output label if we are just running in predict mode
-            if run_type != 3:
-                category = text2label(lines[3])
-                outputdata.append(category)
-    f.close()
+
+    try:
+        f = open(filename, 'r')
+    except FileNotFoundError:
+        print(f'ERROR: The file {filename} cannot be found. Please ensure that it is in the same folder as expense.py.')
+        print('Check the sample file in https://github.com/siesinglau/classifier-bankexpense for the format needed.')
+    else:
+        for i,lines in enumerate(f):
+            if i == 0:
+                #always discard the header row
+                pass
+            else:
+                lines = lines.split(',')
+                desc = lines[2].replace('"','')
+                inputdata.append(cleantext(desc))
+                #skip output label if we are just running in predict mode
+                if run_type != 3:
+                    category = text2label(lines[3])
+                    outputdata.append(category)
+        f.close()
     
     return inputdata, outputdata
 
@@ -119,30 +142,33 @@ class WordIndex:
         self.inputdata = inputdata
         self.filename = filename
         
-        #first parse input data into a unique word list 
-        inputwords = list()
-        for line in self.inputdata:
-            for word in line.split():
-                inputwords.append(word)
-        uniqwords = set(inputwords)
-        
-        #then check what is the highest index currently in the word index.
-        #the next new word will take the next number and added to the wordindex file
-        wi = open(self.filename,'a')
-        if len(self.contents.values()) == 0:
-            highestindex = 0
-        else:
-            highestindex = max([int(i) for i in self.contents.values()])
-        for word in uniqwords:
-            try:
-                self.contents[word]
-            except:
-                highestindex += 1
-                self.contents[word] = highestindex
-                wi.write(word + ', ' + str(highestindex) + '\n')
+        #only add to the wordindex file if the dictionary is still within its limit
+        if len(self.contents.values()) < DICT_LIMIT:
+
+            #first parse input data into a unique word list 
+            inputwords = list()
+            for line in self.inputdata:
+                for word in line.split():
+                    inputwords.append(word)
+            uniqwords = set(inputwords)
+            
+            #then check what is the highest index currently in the word index.
+            #the next new word will take the next number and added to the wordindex file
+            wi = open(self.filename,'a')
+            if len(self.contents.values()) == 0:
+                highestindex = 0
             else:
-                pass
-        wi.close()
+                highestindex = max([int(i) for i in self.contents.values()])
+            for word in uniqwords:
+                try:
+                    self.contents[word]
+                except:
+                    highestindex += 1
+                    self.contents[word] = highestindex
+                    wi.write(word + ', ' + str(highestindex) + '\n')
+                else:
+                    pass
+            wi.close()
         
     def count_items(self):
         
@@ -240,16 +266,16 @@ if __name__ == "__main__":
             traindata = np.array(indexdata)
             trainlabels = np.array(outputdata)
 
-            #standardise length of training data to 8
+            #standardise length of training data to 8 words
             traindata = keras.preprocessing.sequence.pad_sequences(traindata, maxlen=8, padding='post', truncating='post', value = 0)
 
             if run_type == 1:
                 #build the model
                 model = keras.Sequential()
-                model.add(keras.layers.Embedding(10000,32,input_length=8))
+                model.add(keras.layers.Embedding(DICT_LIMIT,32,input_length=8))
                 model.add(keras.layers.GlobalAveragePooling1D())
                 model.add(keras.layers.Dense(32, activation=tf.nn.relu))
-                model.add(keras.layers.Dense(18, activation=tf.nn.softmax))
+                model.add(keras.layers.Dense(20, activation=tf.nn.softmax))
 
                 #compile the model
                 model.compile(optimizer='Adam',loss='sparse_categorical_crossentropy',metrics=['accuracy'])
@@ -291,11 +317,11 @@ if __name__ == "__main__":
 
                 for i,output in enumerate(predict):
                     if output[np.argmax(output)] * 100 < 90:
-                        print(colored('{0:40} ==> {1:15} {2:10.2f}% probability'.format(inputdata[i][:40], 
+                        print(colored('{0:40} ==> {1:17} {2:10.2f}% probability'.format(inputdata[i][:40], 
                                                                             label2text(int(np.argmax(output))), 
                                                                             output[np.argmax(output)]*100),'red'))
                     else:
-                        print(colored('{0:40} ==> {1:15} {2:10.2f}% probability'.format(inputdata[i][:40], 
+                        print(colored('{0:40} ==> {1:17} {2:10.2f}% probability'.format(inputdata[i][:40], 
                                                                             label2text(int(np.argmax(output))), 
                                                                             output[np.argmax(output)]*100),'green'))
             if run_type == 8:
