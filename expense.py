@@ -281,7 +281,7 @@ if __name__ == "__main__":
                 model.compile(optimizer='Adam',loss='sparse_categorical_crossentropy',metrics=['accuracy'])
 
                 #train the model
-                early_stop = keras.callbacks.EarlyStopping(monitor='acc', patience=50)
+                early_stop = keras.callbacks.EarlyStopping(monitor='acc', patience=10)
                 history = model.fit(traindata, trainlabels, epochs=EPOCHS,
                         verbose=0, callbacks=[early_stop, PrintProgress()])
 
