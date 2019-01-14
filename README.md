@@ -8,6 +8,7 @@ Step 4: Launch a command prompt/terminal and go to the folder where the download
 Step 5: Run the python script by entering in the command prompt/terminal: python expense.py
 Step 6: Enter option 1 to build a neural network model and train it using the dummy training data in training.csv
 Step 7: Enter option 3 to use the model to predict the expense categories for the dummy descriptions in predict.csv
+        Program will also copy predict.csv to a new file predict_results.csv where the predicted expense categories are added.
 Step 8: Enter option 8 to see the currently configured expense categories
 Step 9: Enter option 9 to quit the program
 
