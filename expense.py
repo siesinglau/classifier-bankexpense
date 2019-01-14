@@ -4,6 +4,9 @@
 ### Once trained with sufficient data, the neural network model will be accurate enough to be used for prediction.
 ### The prediction is done by supplying a CSV file named predict.csv.
 ###
+### Author: Sie Sing Lau
+### Date: 13 Jan 2019
+###
 ### Limitations:
 ### 1. The model is currently limited to be able to map to 20 expense categories
 ### 2. Only the first 8 words of the expense text description is used. The rest of the text is ignored.
