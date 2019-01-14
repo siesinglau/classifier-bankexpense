@@ -4,9 +4,6 @@
 ### Once trained with sufficient data, the neural network model will be accurate enough to be used for prediction.
 ### The prediction is done by supplying a CSV file named predict.csv.
 ###
-### Author: Sie Sing Lau
-### Date: 13 Jan 2019
-###
 ### Limitations:
 ### 1. The model is currently limited to be able to map to 20 expense categories
 ### 2. Only the first 8 words of the expense text description is used. The rest of the text is ignored.
@@ -111,6 +108,19 @@ def write_training_labels(outputdata, filename):
     for i in outputdata:
         g.write(str(i) + '\n')
     g.close()
+
+def write_back_predict_results(predictoutput, predictsourcefile, outputfile):
+    g = open(predictsourcefile, 'r')
+    h = open(outputfile,'w+')
+    for i, line in enumerate(g):
+        #straight copy of the header row from the source predict.csv file to the output file
+        if i == 0:
+            h.write(line[:-1] + ',Predicted Expense Category,Prediction Probability\n')
+        else:
+            #write the predicted expense category with probability % at the end of the line
+            h.write(line[:-1] + ',' + predictoutput[i-1]['category'] + ',probability=' + str(predictoutput[i-1]['probability']) + '\n')
+    g.close()
+    h.close()
     
 #class that contains the wordindex dictionary
 class WordIndex:
@@ -318,15 +328,25 @@ if __name__ == "__main__":
                 #predict categories using input data
                 predict = model.predict(traindata)
 
+                predictoutput = list()
                 for i,output in enumerate(predict):
-                    if output[np.argmax(output)] * 100 < 90:
+                    
+                    bestguess = dict()
+                    bestguess['category'] = label2text(int(np.argmax(output)))
+                    bestguess['probability'] = round(output[np.argmax(output)]*100,2)
+                    predictoutput.append(bestguess)
+
+                    if bestguess['probability'] < 90:
                         print(colored('{0:40} ==> {1:17} {2:10.2f}% probability'.format(inputdata[i][:40], 
-                                                                            label2text(int(np.argmax(output))), 
-                                                                            output[np.argmax(output)]*100),'red'))
+                                                                            bestguess['category'], 
+                                                                            bestguess['probability']),'red'))
                     else:
                         print(colored('{0:40} ==> {1:17} {2:10.2f}% probability'.format(inputdata[i][:40], 
-                                                                            label2text(int(np.argmax(output))), 
-                                                                            output[np.argmax(output)]*100),'green'))
+                                                                            bestguess['category'], 
+                                                                            bestguess['probability']),'green'))
+                #write output to predict_results.csv
+                write_back_predict_results(predictoutput,'predict.csv','predict_results.csv')
+
             if run_type == 8:
                 print("These are the current expense categories:\n")
                 for i,w in enumerate(reverse_lookup.values()):
